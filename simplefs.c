@@ -175,21 +175,7 @@ int sfs_mount (char *vdiskname)
     // way make it ready to be used for other operations.
     // vdisk_fd is global; hence other function can use it. 
     vdisk_fd = open(vdiskname, O_RDWR); 
-    test();
     return(0);
-}
-
-void test(){
-    // void* buf2 = malloc(100);
-    // lseek(vdisk_fd, 0, SEEK_SET);
-    // read(vdisk_fd, buf2, sizeof(struct sb_info));
-    // perror("read");
-    // printf("buf2: %d, %ld\n", ((struct sb_info*)buf2)->file_count, sizeof(int));
-
-    struct sb_info* buf2 = malloc(sizeof(struct sb_info));
-    //int vd = open(vdisk_fd, "rb+");
-    sread(vdisk_fd, buf2, sizeof(struct sb_info)*3, sizeof(struct sb_info));
-    printf("%d, %d\n", buf2->dir_count, buf2->file_count);
 }
 
 int sfs_umount ()
