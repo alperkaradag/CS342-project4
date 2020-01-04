@@ -137,6 +137,11 @@ int getroot( char *filename ) {
     return -1;
 }
 
+int updateFat() {
+    for(int i=8;i<1032;i++)
+        swrite( vdisk_fd, fat+(i-8)*BLOCKSIZE, i*BLOCKSIZE, BLOCKSIZE );
+}
+
 int sfs_format (char *vdiskname)
 {
     // populate superblock
@@ -260,7 +265,6 @@ int sfs_open(char *file, int mode)
 }
 
 int sfs_close(int fd){
-
     openfiles[fd].mode = -1;
     memcpy(openfiles[fd].name, "", 1);
     return (0); 
@@ -354,6 +358,7 @@ int sfs_append(int fd, void *buf, int n)
         n -= 1024;
         buf += 1024;
     }
+    updateFat();
     return (0);
 }
 
@@ -371,7 +376,6 @@ int sfs_delete(char *filename)
         fat[h].next = -1;
         fat[h].used = 0;
     }
+    updateFat();
     return (0); 
 }
-
-
