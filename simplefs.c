@@ -81,6 +81,7 @@ int read_block (void *block, int k)
     int offset;
 
     offset = k * BLOCKSIZE;
+    printf("reading offset: %d\n",offset);
     lseek(vdisk_fd, (off_t) offset, SEEK_SET);
     n = read (vdisk_fd, block, BLOCKSIZE);
     if (n != BLOCKSIZE) {
@@ -131,9 +132,10 @@ int eq( char *filex, char *filey ) {
 }
 
 int getroot( char *filename ) {
-    for(int i=0;i<56;i++)
+    for(int i=0;i<56;i++) {
         if( eq( filename, root[i].name ) )
             return i;
+    }
     return -1;
 }
 
@@ -236,6 +238,7 @@ int sfs_create(char *filename)
         if(!root[i].used){
             root[i] = *file_record;                                         // set directory entry to file_record
             swrite(vdisk_fd, file_record, root_offset + i*sdir, sdir);      // write into vdisk
+            break;
         }   
     }
 
@@ -266,7 +269,9 @@ int sfs_open(char *file, int mode)
 
 int sfs_close(int fd){
     openfiles[fd].mode = -1;
+    openfiles[fd].pos = 0;
     memcpy(openfiles[fd].name, "", 1);
+    updateFat();
     return (0); 
 }
 
@@ -287,20 +292,15 @@ int sfs_read(int fd, void *buf, int n){
         return -1;
     }
     struct open_file_entry of = openfiles[fd];
-    struct dir_entry f;
     
-    printf("pos before: %d\n", of.pos);
-    for(int i = 0; i < 56; i++){
-        if(eq(openfiles[fd].name, root[i].name))
-            f = root[i];
-    }
-
-    int curfat = f.fb;
+    struct dir_entry f = root[getroot( of.name )];
+    printf("READING FROM: FD=%d\n",getroot(of.name));
+    int curfat = root[fd].fb;
     int bytes_to_read = f.size < n ? f.size : n;
     int rem = bytes_to_read;
     int block_no = f.size%1024 == 0 ? f.size/1024 : f.size/1024+1;
     int poscpy = of.pos;
-
+    printf("--- %d, %d\n",curfat,poscpy);
     while(poscpy > 1024){               // come to pos's block
         curfat = fat[curfat].next;
         poscpy -= 1024;
@@ -310,12 +310,19 @@ int sfs_read(int fd, void *buf, int n){
     int bytes_read = 0;
     while(rem){
         int read_size = rem < 1024 ? rem : 1024;
-        read_block(block_read, fat_offset + curfat*sfat);
-
-        memcpy(buf+bytes_read, block_read, read_size);
+        printf("---- cur=%d, %d, sz=%d\n",curfat,(curfat+1032)*1024,read_size);
+        sread(vdisk_fd, block_read, (curfat+1032)*1024, read_size);
+        printf("ok %d %d\n",bytes_read,read_size);
+        char *hmm = block_read;
+        printf("muahha %d\n",hmm[0]);
+        printf("ok %d %d\n",bytes_read,read_size);
+        memcpy(buf+bytes_read, block_read, read_size);printf("ok\n");
+        
         bytes_read += read_size;
+        printf("ok\n");
         rem -= read_size;
         of.pos += read_size;
+        printf("ok\n");
         curfat = fat[curfat].next;
     }
     printf("pos after: %d\n", of.pos);
@@ -333,6 +340,7 @@ int getfree() {
 
 int sfs_append(int fd, void *buf, int n)
 {
+    fd = getroot(openfiles[fd].name);
     int block = root[fd].fb;
     int sz = root[fd].size;
 
@@ -344,7 +352,8 @@ int sfs_append(int fd, void *buf, int n)
     int add = 1024-sz;
     if( n < add ) add = n;
     int offset = (block+1032)*BLOCKSIZE + sz;
-    //printf("writing----> block=%d(sz=%d), offset=%d -- add=%d\n",block,sz,offset,add);
+    printf("writing----> FD=%d, block=%d(sz=%d), offset=%d -- add=%d\n",fd,block,sz,offset,add);
+    swrite( vdisk_fd, buf, offset, add );
     buf += add;
     n -= add;
     while( n > 0 ) {
@@ -358,7 +367,6 @@ int sfs_append(int fd, void *buf, int n)
         n -= 1024;
         buf += 1024;
     }
-    updateFat();
     return (0);
 }
 
@@ -376,6 +384,5 @@ int sfs_delete(char *filename)
         fat[h].next = -1;
         fat[h].used = 0;
     }
-    updateFat();
     return (0); 
 }
