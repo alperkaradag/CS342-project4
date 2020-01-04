@@ -27,6 +27,7 @@ int main()
 	exit(1); 
     }
     ret = sfs_format (DISKNAME);
+    printf("ASFHASF\n");
     if (ret != 0) {
 	printf ("there was an error in format\n");
 	exit(1); 
@@ -34,6 +35,7 @@ int main()
     // ****************************************************
 
     ret = sfs_mount (DISKNAME); 
+    printf("ASFHASF\n");
     if (ret != 0) {
 	printf ("could not mount \n");
 	exit (1); 

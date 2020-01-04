@@ -106,11 +106,6 @@ int write_block (void *block, int k)
     return 0; 
 }
 
-
-/**********************************************************************
-   The following functions are to be called by applications directly. 
-***********************************************************************/
-
 void swrite(int fd, void* buf, int offset, int size){
     lseek(fd, offset, SEEK_SET);
     write(fd, buf, size);
@@ -120,6 +115,10 @@ void sread(int fd, void* buf, int offset, int size){
     lseek(fd, offset, SEEK_SET);
     read(fd, buf, size);
 }
+
+/**********************************************************************
+   The following functions are to be called by applications directly. 
+***********************************************************************/
 
 int sfs_format (char *vdiskname)
 {
@@ -134,17 +133,17 @@ int sfs_format (char *vdiskname)
     root_offset = BLOCKSIZE;
     fat_offset = BLOCKSIZE*8;
     file_data = BLOCKSIZE*1032;
-
+    
     // init fat entries
     fat = malloc(sfat * fatsize);
     struct fat_entry* initfat = malloc(sfat);
     initfat->used = 0;
     initfat->next = -1;
     for(int i = fat_offset; i < BLOCKSIZE*1032; i+=8){
-        swrite(vdisk_fd, initfat, i, sfat);
-        fat[i] = *initfat;
+        swrite(vd, initfat, i, sfat);
+        if(i!=131072)
+        fat[(i-fat_offset)/8] = *initfat;
     }
-
     // init root entries
     root = malloc(sdir*56);
     struct dir_entry* initdir = malloc(sdir);
@@ -152,15 +151,17 @@ int sfs_format (char *vdiskname)
     initdir->size = 0;
     initdir->fb = -1;
     for(int i = root_offset; i < BLOCKSIZE*8; i+=128){
-        swrite(vdisk_fd, initdir, i, sdir);
-        root[i] = *initdir;
+        swrite(vd, initdir, i, sdir);
+        root[(i-root_offset)/128] = *initdir;
     }
+    
 
     close(vd);
 
+    openfiles = malloc(sofe * 56);
     struct open_file_entry* ofe = malloc(sofe);
     ofe->pos = 0;
-    memcpy(ofe->name, '\0', 1);
+    memcpy(ofe->name, "", 1);
     ofe->mode = -1;
     for(int i = 0; i < 56; i++){
         openfiles[i] = *ofe;
@@ -265,12 +266,13 @@ int sfs_read(int fd, void *buf, int n){
     }
     struct open_file_entry of = openfiles[fd];
     struct dir_entry f;
-    int curfat = f.fb;
+    
     printf("pos before: %d\n", of.pos);
     for(int i = 0; i < 56; i++){
         if(openfiles[fd].name == root[i].name)
             f = root[i];
     }
+    int curfat = f.fb;
     int bytes_to_read = f.size < n ? f.size : n;
     int rem = bytes_to_read;
     int block_no = f.size%1024 == 0 ? f.size/1024 : f.size/1024+1;
