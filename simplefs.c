@@ -84,31 +84,34 @@ int read_block (void *block, int k)
     lseek(vdisk_fd, (off_t) offset, SEEK_SET);
     n = read (vdisk_fd, block, BLOCKSIZE);
     if (n != BLOCKSIZE) {
-	    printf ("read error\n");
-	return -1;
+        printf ("read error\n");
+        return -1;
     }
     return (0); 
 }
 
 // write block k into the virtual disk. 
-int write_block (void *block, int k)
+int write_block (void *block, int k, int size)
 {
+    if( size > BLOCKSIZE )
+        size = BLOCKSIZE;
     int n;
     int offset;
 
     offset = k * BLOCKSIZE;
     lseek(vdisk_fd, (off_t) offset, SEEK_SET);
-    n = write (vdisk_fd, block, BLOCKSIZE);
-    if (n != BLOCKSIZE) {
-	    printf ("write error\n");
-	return (-1);
+    n = write (vdisk_fd, block, size);
+    if (n != size) {
+        printf ("write error -- %d, off=%d\n",n,offset);
+        perror("asd");
+        return (-1);
     }
     return 0; 
 }
 
-void swrite(int fd, void* buf, int offset, int size){
+int swrite(int fd, void* buf, int offset, int size){
     lseek(fd, offset, SEEK_SET);
-    write(fd, buf, size);
+    return write(fd, buf, size);
 }
 
 void sread(int fd, void* buf, int offset, int size){
@@ -119,6 +122,20 @@ void sread(int fd, void* buf, int offset, int size){
 /**********************************************************************
    The following functions are to be called by applications directly. 
 ***********************************************************************/
+
+int eq( char *filex, char *filey ) {
+    int same = 1;
+    for(int j=0;j<32;j++)
+        same &= (filey[j] == filex[j]);
+    return same;
+}
+
+int getroot( char *filename ) {
+    for(int i=0;i<56;i++)
+        if( eq( filename, root[i].name ) )
+            return i;
+    return -1;
+}
 
 int sfs_format (char *vdiskname)
 {
@@ -230,7 +247,7 @@ int sfs_open(char *file, int mode)
         if(strlen(openfiles[i].name) == 0 && empty > i){
             empty = i;
         }
-        if(openfiles[i].name == file){
+        if(eq(openfiles[i].name, file)){
             printf("file %s is already open in mode %d", file, openfiles[i].mode);
             return -1;
         }
@@ -243,15 +260,16 @@ int sfs_open(char *file, int mode)
 }
 
 int sfs_close(int fd){
+
     openfiles[fd].mode = -1;
-    memcpy(openfiles[fd].name, '\0', 1);
+    memcpy(openfiles[fd].name, "", 1);
     return (0); 
 }
 
 int sfs_getsize (int  fd)
 {
     for(int i = 0; i < 56; i++){
-        if(root[i].name == openfiles[fd].name){
+        if(eq(root[i].name, openfiles[fd].name)){
             return root[i].size;
         }
     }
@@ -269,9 +287,10 @@ int sfs_read(int fd, void *buf, int n){
     
     printf("pos before: %d\n", of.pos);
     for(int i = 0; i < 56; i++){
-        if(openfiles[fd].name == root[i].name)
+        if(eq(openfiles[fd].name, root[i].name))
             f = root[i];
     }
+
     int curfat = f.fb;
     int bytes_to_read = f.size < n ? f.size : n;
     int rem = bytes_to_read;
@@ -301,14 +320,57 @@ int sfs_read(int fd, void *buf, int n){
     return (bytes_to_read); 
 }
 
+int getfree() {
+    for(int i=0;i<fatsize;i++)
+        if( !fat[i].used )
+            return i;
+    return -1;
+}
 
 int sfs_append(int fd, void *buf, int n)
 {
-    return (0); 
+    int block = root[fd].fb;
+    int sz = root[fd].size;
+
+    root[fd].size += n;
+    while( sz > 1024 ) {
+        sz -= 1024;
+        block = fat[block].next;
+    }
+    int add = 1024-sz;
+    if( n < add ) add = n;
+    int offset = (block+1032)*BLOCKSIZE + sz;
+    //printf("writing----> block=%d(sz=%d), offset=%d -- add=%d\n",block,sz,offset,add);
+    buf += add;
+    n -= add;
+    while( n > 0 ) {
+        fat[block].next = getfree();
+        block = fat[block].next;
+        if( block == -1 )
+            return -1;
+        fat[block].used=1;
+        //printf("block/writing----> block=%d -- n=%d\n",block,n);
+        write_block( buf, block+1032, n );
+        n -= 1024;
+        buf += 1024;
+    }
+    return (0);
 }
 
 int sfs_delete(char *filename)
 {
+    int fd = getroot(filename);
+    if( fd == -1 )
+        return fd;
+    int block = root[fd].fb;
+    int sz = root[fd].size;
+    while( sz > 1024 ) {
+        sz -= 1024;
+        int h = block;
+        block = fat[block].next;
+        fat[h].next = -1;
+        fat[h].used = 0;
+    }
     return (0); 
 }
 

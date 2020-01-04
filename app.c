@@ -41,8 +41,6 @@ int main()
 	exit (1); 
     }
 
-
-
     printf ("creating files\n"); 
     sfs_create ("file1.bin");
     sfs_create ("file2.bin");
@@ -50,11 +48,10 @@ int main()
 
     fd1 = sfs_open ("file1.bin", MODE_APPEND);
     fd2 = sfs_open ("file2.bin", MODE_APPEND); 
-    for (i = 0; i < 10000; ++i) {
+    for (i = 0; i < 10; ++i) {
 	buffer[0] =   (char) 65;  
 	sfs_append (fd1, (void *) buffer, 1);
     }
-
     for (i = 0; i < 10000; ++i) {
 	buffer[0] = (char) 70;
 	buffer[1] = (char) 71;
@@ -65,7 +62,7 @@ int main()
     
     sfs_close(fd1); 
     sfs_close(fd2); 
-
+    
     fd = sfs_open("file3.bin", MODE_APPEND);
     for (i = 0; i < 10000; ++i) {
 	memcpy (buffer, buffer2, 8); // just to show memcpy
