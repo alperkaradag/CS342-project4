@@ -1,6 +1,3 @@
-
-
-
 all: libsimplefs.a app
 
 libsimplefs.a: 	simplefs.c
