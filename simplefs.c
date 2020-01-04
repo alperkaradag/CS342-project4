@@ -280,7 +280,7 @@ int sfs_read(int fd, void *buf, int n){
     struct open_file_entry of = openfiles[fd];
     struct dir_entry f;
     int curfat = f.fb;
-
+    printf("pos before: %d\n", of.pos);
     for(int i = 0; i < 56; i++){
         if(openfiles[fd].name == root[i].name)
             f = root[i];
@@ -296,11 +296,21 @@ int sfs_read(int fd, void *buf, int n){
     }
 
     void* block_read;
+    int bytes_read = 0;
     while(rem){
+        int read_size = rem < 1024 ? rem : 1024;
         read_block(block_read, fat_offset + curfat*sfat);
-    }
 
-    return (0); 
+        memcpy(buf+bytes_read, block_read, read_size);
+        bytes_read += read_size;
+        rem -= read_size;
+        of.pos += read_size;
+        curfat = fat[curfat].next;
+    }
+    printf("pos after: %d\n", of.pos);
+    printf("bytes_to_read: %d, bytes_read: %d, rem: %d\n", bytes_to_read, bytes_read, rem);
+
+    return (bytes_to_read); 
 }
 
 
@@ -313,3 +323,5 @@ int sfs_delete(char *filename)
 {
     return (0); 
 }
+
+
