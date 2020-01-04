@@ -41,40 +41,36 @@ int main()
 	exit (1); 
     }
 
-    printf ("creating files\n"); 
+    printf ("creating files\n");
+    int beg = clock(), en;
     sfs_create ("file1.bin");
     sfs_create ("file2.bin");
     sfs_create ("file3.bin");
+    en = clock();
+    printf("WOWOW create time = %d\n",en-beg);
 
     fd1 = sfs_open ("file1.bin", MODE_APPEND);
     fd2 = sfs_open ("file2.bin", MODE_APPEND); 
-    for (i = 0; i < 10; ++i) {
+    for (i = 0; i < 10000; ++i) {
     	buffer[0] =   (char) 65;  
     	sfs_append (fd1, (void *) buffer, 1);
     }
-    for (i = 0; i < 10; ++i) {
+    for (i = 0; i < 10000; ++i) {
     	buffer[0] = (char) 70;
     	buffer[1] = (char) 71;
     	buffer[2] = (char) 72;
     	buffer[3] = (char) 73;
     	sfs_append(fd2, (void *) buffer, 4);
     }
-
+    char look[10002];
     sfs_close(fd1); 
     sfs_close(fd2); 
-    char look[10002];
 
     fd1 = sfs_open ("file1.bin", MODE_READ);
     fd2 = sfs_open ("file2.bin", MODE_READ); 
-
     sfs_read(fd2,look,10);
-    for(i=0;i<10;i++)
-        printf("-- %d\n",look[i]);
-    
     sfs_read(fd1,look,10);
-    for(i=0;i<10;i++)
-        printf("fd1=-- %d\n",look[i]);
-    
+
     sfs_close(fd1); 
     sfs_close(fd2); 
     return 0;
